@@ -1,0 +1,2075 @@
+      *  PROBA MEMBER=KN999A11 CODE=MB07 AUTH=URRUTIA-CA
+      *  PROBA  STAND 31.10.2024(23.55) LAN=COB
+      *                   9A10 CODE=KB04 AUTH=URRUTIA-CA
+      ******************************************************************
+      *
+      *        I D E N T I F I C A T I O N   D I V I S I O N
+      *
+      *  V10 source of cursor declaration is displayed too
+      *
+      *  V02/v03 - 19.04.2023
+      *
+      *      displayar variables de debug y literal
+      *      en unsa sola linea para reducir tamaöo del log
+      *
+      *      incorpora la generacion del esquema de llamadas del
+      *      programa (OUTLINE)
+      *
+      *  V02 - trata de displayar variables de debug y literal
+      *        en unsa sola linea para reducir tamaöo del log
+      *
+      *  v01 - 23.12.2023
+      *      incorpora debug para accesos a la BD con display variables
+      *      Incorpora la linea de mensaje the fin-debug
+      *      fix some bugs
+      *      incorpora posibilidad de codigo condicionado para trazas
+      *
+      *  PROGRAMAS QUE CAUSAN ERROR: VX766A19
+      *
+      *  comprobar los problemas de debug con la vx682a o VX716A
+      *  comprobar los problemas de debug con la vx682a o VX716A
+      *  comprobar los problemas de debug con la vx682a o VX716A
+      *  comprobar los problemas de debug con la vx682a o VX716A
+      *  comprobar los problemas de debug con la vx682a o VX716A
+      *  comprobar los problemas de debug con la vx682a o VX716A
+      *
+      *  V09 - 08-08-2024 se corrigen los errores en debug de sql
+      ******************************************************************
+      *
+       IDENTIFICATION DIVISION.
+       PROGRAM-ID.    KN999A.
+       AUTHOR.        Barna Team.juc.
+       INSTALLATION.  DV-VW-WOLFSBURG.
+       DATE-WRITTEN.  25.02.2022.
+      ******************************************************************
+      ******************************************************************
+      /
+       ENVIRONMENT DIVISION.
+      *
+      ******************************************************************
+       CONFIGURATION SECTION.
+       SPECIAL-NAMES.
+      *
+      ******************************************************************
+      *           I N P U T - O U T P U T    S E C T I O N
+      ******************************************************************
+      *
+       INPUT-OUTPUT SECTION.
+
+       FILE-CONTROL.
+
+           SELECT  PROGRAMA            ASSIGN PROGRAMA
+                   FILE STATUS         IS D1AN-STATUS-ED1.
+
+           SELECT  ESTRUCT             ASSIGN ESTRUCT
+                   FILE STATUS         IS D2AN-STATUS-ED2.
+
+           SELECT  SYSIN               ASSIGN TO SYSIN
+                   FILE STATUS         IS SYSIN-STATUS.
+      *
+       DATA DIVISION.
+      *
+       FILE SECTION.
+
+       FD  PROGRAMA      ,
+           RECORDING     F,
+           BLOCK         0  CHARACTERS,
+           DATA  RECORD  ED1-DATEN.
+      *
+       01  ED1-DATEN     PIC X(80).
+
+       FD  ESTRUCT       ,
+           RECORDING     F,
+           BLOCK         0  CHARACTERS,
+           DATA  RECORD  ED2-DATEN.
+      *
+       01  ED2-DATEN     PIC X(300).
+
+       FD  SYSIN.
+       01  INPUT-LINE PIC X(80).
+           88 EOF VALUE HIGH-VALUES.
+
+       WORKING-STORAGE SECTION.
+       77  PROBA-ID                PIC X(34)       VALUE
+           'KN999A11/MB07 STAND 31.10.24 23.55'.
+
+       77  COMPILE-TIME            PIC X(21).
+       77  COMPILE-TS              PIC X(26).
+
+       01   DIV PIC 9(4) VALUE ZEROES.
+       01   REM PIC 9(4) VALUE ZEROES.
+
+       01   INDXCALLS        PIC 9(4) COMP-3 VALUE 0.
+       01   NIVELES          PIC 9(4) COMP-3 VALUE 0.
+       01   CALLERANT        PIC X(30) VALUE SPACES.
+
+       01   WK-NIJER               PIC X(3)  VALUE SPACES.
+       01   WK-VARIABLE            PIC X(30) VALUE SPACES.
+       01   WK-MATRIZ              PIC X(12) VALUE SPACES.
+       01   WK-MATRIZ-NUM          PIC 9(12) VALUE ZEROES.
+
+      *01  RETURN-CODE PICTURE S9(4) USAGE BINARY VALUE ZERO.
+
+      * HEXVAL (output) must be twice the size of HEXNUM (input).
+      * For example if you have 20 bytes of garbage but
+      * want to display it in hex, change the picture
+      * of HEXNUM to X(20), of HEXVAL to X(40), then
+      * move the garbage to HEXNUM. Ignore DECNUM.
+       01   HEXNUM  PIC X(4) VALUE X"0000CA84".
+       01   DECNUM  REDEFINES HEXNUM PIC S9(8) COMP.
+       01   HEXVAL  PIC X(8).
+       01   HEXSTR  PIC X(16) VALUE "0123456789ABCDEF".
+       01   DEC     PIC S9(4) COMP.
+       01   FILLER  REDEFINES DEC.
+           02 FILLER PIC X.
+           02 DECBYTE PIC X.
+       01  R   PIC S9(8) COMP.
+       01  J1  PIC S9(8) COMP.
+       01  Q1  PIC S9(8) COMP.
+       01  R1  PIC S9(8) COMP.
+       01   I  PIC S9(8) COMP.
+       01   J  PIC S9(8) COMP.
+       01   Q  PIC S9(8) COMP.
+
+       01 WK-FECHA                 PIC X(6)  VALUE SPACES.
+       01 WK-HORA                  PIC X(6)  VALUE SPACES.
+
+       01 WK-PARRAFO-LV            PIC X(30) VALUE SPACES.
+       01 WK-DISPLAY-LV            PIC X(80) VALUE SPACES.
+       01 WK-NIVEL-LV              PIC X(80) VALUE SPACES.
+       01 IND-LV                   PIC 9999 COMP-3 VALUE ZERO.
+       01 ITER-LV                  PIC 9999 COMP-3 VALUE ZERO.
+
+       01  INDICE                  PIC 9999 COMP-3 VALUE ZERO.
+       01  IDX                     PIC 9999 COMP-3 VALUE ZERO.
+       01  IDX2                    PIC 9999 COMP-3 VALUE ZERO.
+       01  IDX3                    PIC 9999 COMP-3 VALUE ZERO.
+       01  INDX                    PIC 9999 COMP-3 VALUE ZERO.
+       01  INDX2                   PIC 9999 COMP-3 VALUE ZERO.
+       01  INDX3                   PIC 9999 COMP-3 VALUE ZERO.
+       01  INDX5                   PIC 9999 COMP-3 VALUE ZERO.
+       01  INDX-TNT                PIC 9999 COMP-3 VALUE ZERO.
+       01  INDX-TNT2               PIC 9999 COMP-3 VALUE ZERO.
+      *01  SQL-CONTADOR            PIC 9999 COMP-3 VALUE ZERO.
+       01  SQL-CONTADOR            PIC 9999 VALUE ZERO.
+       01  SQL-CONTADOR-PUNTO      PIC 9999 VALUE ZERO.
+       01  CONTADOR-FINPGM         PIC 9999 COMP-3 VALUE ZERO.
+       01  ISQL                    PIC 9999 COMP-3 VALUE ZERO.
+       01  ISQL2                   PIC 9999 COMP-3 VALUE ZERO.
+       01  ISQL3                   PIC 9999 COMP-3 VALUE ZERO.
+       01  ISQL4                   PIC 9999 COMP-3 VALUE ZERO.
+       01  NSQL                    PIC 9999 COMP-3 VALUE ZERO.
+       01  CONTADOR                PIC 9999 COMP-3 VALUE ZERO.
+       01  CONTADOR-YES            PIC 99   COMP-3 VALUE ZERO.
+       01  CONTADOR-NO             PIC 99   COMP-3 VALUE ZERO.
+       01  CONTADOR-FIN            PIC 9999 COMP-3 VALUE ZERO.
+       01  CONTADOR-FINCURSOR      PIC 9999 COMP-3 VALUE ZERO.
+       01  WK-PROGRAMA             PIC X(8) VALUE SPACES.
+       01  WK-AUXILIAR             PIC X(80) VALUE SPACES.
+       01  WK-NIVEL                PIC X(80) VALUE SPACES.
+       01  WK-DISPLAY-INI          PIC X(24) VALUE SPACES.
+       01  WK-DISPLAY              PIC X(80) VALUE SPACES.
+       01  WK-DISPLAY-INTENTO      PIC X(72) VALUE SPACES.
+       01  WK-DISPLAY-SQL          PIC X(80) VALUE SPACES.
+       01  WK-DISPLAY2             PIC X(80) VALUE SPACES.
+       01  WK-DISPLAY2-CALLER      PIC X(80) VALUE SPACES.
+       01  WK-DISPLAY3             PIC X(80) VALUE SPACES.
+
+       01  D1AN-STATUS-ED1         PIC 99 EXTERNAL.
+       01  D2AN-STATUS-ED2         PIC 99 EXTERNAL.
+       01  SYSIN-STATUS            PIC 99 EXTERNAL.
+
+       01  FILLER                  PIC X VALUE "N".
+           88 FINAL-PROGRAMA-FUENTE      VALUE "S".
+       01  CTRL-FINAL-SQL          PIC X VALUE "N".
+           88 FINAL-SQL                  VALUE "S".
+
+       01  CTRL-SQL-MOSTRADO       PIC X VALUE "N".
+           88 SQL-MOSTRADO               VALUE "S".
+
+       01  CTRL-ESTRUCT            PIC X VALUE "N".
+           88 FINAL-ESTRUCT              VALUE "S".
+
+       01  CTRL-FINAL-SYSIN        PIC X VALUE "N".
+           88 FINAL-SYSIN          VALUE "S".
+
+       01  CTRL-ESTAMOS-EN-DERIVA  PIC X VALUE "S".
+           88 ESTAMOS-EN-DERIVA    VALUE "S".
+
+       01  CTRL-PROCEDURE          PIC X VALUE "N".
+           88 PROCEDURE-LEIDA            VALUE "S".
+
+       01  CTRL-DISPLAY-INICIO-HECHO  PIC X VALUE "N".
+           88 DISPLAY-INICIO-NO-HECHO       VALUE "N".
+
+       01  CTRL-PROGRAM-ID            PIC X VALUE "S".
+           88 SIN-PROGRAM-ID                VALUE "S".
+
+       01  CTRL-ESTRUCTURA            PIC X VALUE "N".
+           88 ESTRUCTURA-FOUND              VALUE "S".
+           88 NO-SE-LOCALIZA-ESTRUCTURA     VALUE "N".
+
+       01  CTRL-HIERARQY              PIC X VALUE "N".
+           88 HIERARQY-FOUND                VALUE "S".
+           88 HIERARQY-NOT-FOUND            VALUE "N".
+
+       01  CTRL-OPERACION.
+           05 FILLER               PIC X(3).
+              88 PONERDISPLAYS              VALUE "INS".
+              88 QUITARLOSDISPLAYS          VALUE "DEL".
+              88 ANALIZAR                   VALUE "ANA".
+              88 JERARQUIA                  VALUE "JER".
+              88 OUTLINE                    VALUE "OTL".
+              88 COFFSETS                   VALUE "OFT".
+           05 GANCHO               PIC X(5).
+           05 ANALIZAR-SQL         PIC X(3).
+              88 QUIERO-VER-SQL             VALUE "SQL".
+           05 ANALIZAR-SQL-2       PIC X(4).
+              88 QUIERO-VER-LIT-SQL         VALUE "LSQL".
+           05 CODIGO-CONDICIONADO  PIC X(64).
+           05 ctrl-depuracion      pic x value 'N'.
+              88 depuracion-propia       value 'S'.
+
+       01  FILLER REDEFINES CTRL-OPERACION.
+           05  FILLER PIC X(79).
+           05  FILLER PIC X.
+               88 SOLO-JUC    VALUE "J".
+               88 AJUSTE-SQL  VALUE "A".
+               88 SIN-DEFINIR VALUE " ".
+
+       01  LONGITUD-SQL            PIC 99 VALUE ZERO.
+       01  LONGITUD-LINEA          PIC 99 VALUE 80.
+
+       01  CTRL-BETA PIC X.
+           88 VERSION-BETA  VALUE "B".
+
+       01  CURDISPLAY.                          *>V10-I
+           05 CURSORS-SOURCE OCCURS 5000 TIMES.
+              15 CURSOR-NAME PIC X(40).
+              15 CURSOR-LINE PIC X(80).
+
+       01  CURSORNAME        PIC X(40).
+
+
+       01  CURSOR-TOKENS.
+           05 TOKEN0         PIC X(80) OCCURS 10 TIMES.
+
+       01  FILLER REDEFINES CURSOR-TOKENS.
+           05 TOKEN1         PIC X(80).
+           05 TOKEN2         PIC X(80).
+           05 TOKEN3         PIC X(80).
+           05 TOKEN4         PIC X(80).
+           05 TOKEN5         PIC X(80).
+           05 TOKEN6         PIC X(80).
+           05 TOKEN7         PIC X(80).
+           05 TOKEN8         PIC X(80).
+           05 TOKEN9         PIC X(80).
+           05 TOKEN10        PIC X(80).
+
+       01  INDX-CURSOR-LINES PIC 9(4) COMP VALUE ZERO.
+       01  INDX-TOKEN        PIC 9(2) COMP VALUE ZERO.
+       01  INDX-CURSOR-IND   PIC 9(2) COMP VALUE ZERO.
+       01  INDX-CURSOR-NAME  PIC 9(2) COMP VALUE ZERO.
+
+       01  CTRL-CURSOR-PROCESO PIC X VALUE 'N'.
+           88 CURSOR-PROCESO         VALUE 'S'. *>V10-F
+
+       01  FILLER.
+           05  FILLER OCCURS 200 TIMES.
+      ********15 NOMVAR            PIC X(30).
+              15 NOMVAR            PIC X(80).
+
+       01  FILLER.
+           05  FILLER OCCURS 2000 TIMES.
+               15  SENTENCIA-SQL   PIC X(72).
+       01  WK-INICIO       PIC X(1000).
+       01  WK-FINAL        PIC X(1000).
+       01  WK-ULTIMA       PIC X.
+       01  SENTENCIA-FINAL PIC X(1000).
+
+       01  IDXREC                  PIC 9(4) COMP VALUE ZERO.
+       01  AUX-IDXREC              PIC 9(4) COMP VALUE ZERO.
+       01  AUX                     PIC 9(4) COMP VALUE ZERO.
+       01  AUXI1                   PIC 9(4) COMP VALUE ZERO.
+
+       01  TABLA-OUTLINE.
+           05  FILLER OCCURS 2000 TIMES.
+              15 CALLER            PIC X(30).
+              15 CALLED            PIC X(30).
+       01 IDX-OUTLINE              PIC 9(4) COMP VALUE 1.
+
+       01 TABLA-LLAMADAS-RECURSIVAS.
+         10 FILLER OCCURS 2000 TIMES.
+            15     OPOPARRAFO      PIC X(8).
+            15     OPOSVUELTA      PIC 9(4) COMP-3.
+            15     OPRESUANT       PIC X(80).
+       01 IDX-RECURSIVAS           PIC 9(3) COMP VALUE 0.
+
+       01   TABLA-MOSTRADOS.
+         10 FILLER OCCURS 2000 TIMES.
+         15  MOSTRADO           PIC X(30).
+       01 IDX-MOSTRADOS            PIC 9(4) COMP VALUE 1.
+
+       01  WKPARRAFOACTUAL      PIC X(30)     VALUE SPACES.
+       01  ESTADOOK             PIC X(02)     VALUE SPACES.
+       01  INDENTACION          PIC 9(5) COMP-3 VALUE ZEROS.
+       01  IDENNTRESU           PIC X(80)     VALUE SPACES.
+       01  IDENNTRESU-ANT       PIC X(80)     VALUE SPACES.
+       01  OTLOUT               PIC X(300)    VALUE SPACES.
+      ******************************************************************
+      * DCLGEN TABLE(KNV01092)                                         *
+      *        LIBRARY(EKN.COBOL(KN01V092))                            *
+      *        ACTION(REPLACE)                                         *
+      *        LANGUAGE(COBOL)                                         *
+      *        STRUCTURE(SATZ)                                         *
+      *        APOST                                                   *
+      *        LABEL(YES)                                              *
+      * ... IS THE DCLGEN COMMAND THAT MADE THE FOLLOWING STATEMENTS   *
+      ******************************************************************
+           EXEC SQL DECLARE KNV01092 TABLE
+           ( WERK                           DECIMAL(2, 0) NOT NULL,
+             ZEITPUNKT                      DATE NOT NULL,
+             TAGE                           DECIMAL(2, 0) NOT NULL,
+             SOLL_BERECHN                   CHAR(1) NOT NULL,
+             HISTORIE_GESCHR                CHAR(1) NOT NULL,
+             MONAT_ABGESCHL                 CHAR(1) NOT NULL
+           ) END-EXEC.
+      ******************************************************************
+      * COBOL DECLARATION FOR TABLE KNV01092                    *      *
+      ******************************************************************
+      * PREFIX SET ON 12/10/94 AT 09:29 BY ESN249Y                     *
+      ******************************************************************
+       01  VMON-SATZ.
+           05 VMONAX-TAB.
+           10 VMONAN-WERK          PIC S9(2)V      USAGE COMP-3.
+           10 VMONAX-ZEITPUNKT     PIC X(10).
+           10 VMONAN-TAGE          PIC S9(2)V      USAGE COMP-3.
+           10 VMONAX-SOLL-BERECHN  PIC X(1).
+           10 VMONAX-HISTORIE-GESCHR
+                                   PIC X(1).
+           10 VMONAX-MONAT-ABGESCHL
+                                   PIC X(1).
+      ******************************************************************
+      * THE NUMBER OF COLUMNS DESCRIBED BY THIS DECLARATION IS 6       *
+      ******************************************************************
+           05 VMONAX-INDARRAY.
+           10 VMONAN-IND           PIC S9(4)       USAGE COMP
+                               OCCURS 6.
+           05 VMONAN-WERK-IND      PIC S9(4)       USAGE COMP.
+           05 VMONAN-ZEITPUNKT-IND PIC S9(4)       USAGE COMP.
+           05 VMONAN-TAGE-IND      PIC S9(4)       USAGE COMP.
+           05 VMONAN-SOLL-BERECHN-IND
+                                   PIC S9(4)       USAGE COMP.
+           05 VMONAN-HISTORIE-GESCHR-IND
+                                   PIC S9(4)       USAGE COMP.
+           05 VMONAN-MONAT-ABGESCHL-IND
+                                   PIC S9(4)       USAGE COMP.
+
+      *PCOPY=YDSCAC02**
+      *  PROBA PCOPYANF
+      *  PROBA MEMBER=YDSCAC02 CODE=BV02 AUTH=TESSARS-RO TYPE=S
+      *  PROBA  STAND 26.03.2013(09.41) LAN=COB
+      ******************************************************************
+      *                   S Q L C A  /  C O B O L                      *
+      *    AB  DB2 V10                                                 *
+      ******************************************************************
+             EXEC SQL
+               INCLUDE SQLCA
+             END-EXEC.
+      *  PROBA PCOPYEND
+      /
+       PROCEDURE DIVISION.
+       A00-GESAMTABLAUF.
+      *
+           PERFORM INICIALIZACIONES
+
+           PERFORM LEE-LINEA-CODIGO
+
+           INITIALIZE INDICE
+
+           IF    COFFSETS
+      **
+      *   no implementada todavia
+      *
+                 PERFORM CUENTA-OFFSETS THRU
+                     FIN-CUENTA-OFFSETS
+           ELSE
+               PERFORM UNTIL FINAL-PROGRAMA-FUENTE
+
+                  PERFORM PROCESADO-DEL-REGISTRO
+
+                  PERFORM LEE-LINEA-CODIGO
+
+               END-PERFORM
+
+               IF VERSION-BETA
+                  PERFORM VARYING INDX-CURSOR-LINES
+                     FROM 1 BY 1
+                    UNTIL INDX-CURSOR-LINES > 5000 OR
+                          CURSOR-NAME (INDX-CURSOR-LINES) = SPACES
+
+                          DISPLAY "++ "
+                                CURSOR-LINE (INDX-CURSOR-LINES)
+                  END-PERFORM
+               END-IF
+           END-IF.
+
+           CLOSE PROGRAMA.
+
+           IF JERARQUIA
+              PERFORM VARYING INDICE FROM 1 BY 1
+                UNTIL INDICE > 2000
+                  INSPECT CALLER (INDICE) REPLACING ALL "#" BY SPACE
+                  INSPECT CALLED (INDICE) REPLACING ALL "#" BY SPACE
+              END-PERFORM
+
+              PERFORM MUESTRA-JERARQUIA
+           END-IF
+
+           IF   VERSION-BETA
+                 PERFORM VARYING INDICE FROM 1 BY 1
+                    UNTIL INDICE > 2000 OR
+                      CALLER (INDICE) = SPACES
+
+                     DISPLAY "++ " CALLER (INDICE) "-->"
+                       CALLED (INDICE)
+                 END-PERFORM
+           END-IF.
+
+           IF OUTLINE
+              MOVE 1 TO INDX
+              MOVE SPACES TO TABLA-MOSTRADOS
+      ********PERFORM MUESTRA-OUTLINE UNTIL
+              PERFORM MUESTRA-OUTLINE
+                VARYING INDX FROM 1 BY 1 UNTIL
+                INDX > 2000 OR CALLER(INDX) = SPACES
+           END-IF.
+
+           STOP RUN.
+
+       MUESTRA-OUTLINE.
+           DISPLAY "ÑÑMUESTRA ONLINE " INDX " " CALLER(INDX)
+      **
+             IF  CALLER (INDX) NOT = CALLERANT
+      **
+      *  comprobamos que no estamos fuera de la logica principal
+      *  y que estemos tratando un parrafo auxiliar ya tratado ...
+      *
+      ***********DISPLAY "++ " CALLER (INDX) " <> " CALLERANT
+                 PERFORM VARYING IDX-MOSTRADOS FROM 1 BY 1
+                   UNTIL IDX-MOSTRADOS > 2000
+                      OR MOSTRADO (IDX-MOSTRADOS) = SPACES
+                      OR MOSTRADO (IDX-MOSTRADOS) = CALLER (INDX)
+                 END-PERFORM
+      **
+      * No se encuentra en la matriz de mostrados, se displaya
+      * y se guarda en la matriz
+      *
+                 IF    MOSTRADO (IDX-MOSTRADOS) = SPACES
+                       DISPLAY "ÑÑNO MOSTRADO ANTES " CALLER (INDX)
+                       MOVE CALLER (INDX) TO OTLOUT
+                       PERFORM PRINTOTLOUT
+                       MOVE CALLER (INDX) TO CALLERANT
+                                             MOSTRADO (IDX-MOSTRADOS)
+                 END-IF
+             END-IF
+      **
+      * Si a su vez el nuevo parrafo llama a otro, simula recursividad
+      * y lo procesa
+      *
+             IF CALLED (INDX) NOT = SPACES
+                MOVE CALLED (INDX) TO WKPARRAFOACTUAL
+                ADD  1 TO IDX-RECURSIVAS
+                MOVE INDX            TO OPOSVUELTA (IDX-RECURSIVAS)
+                MOVE CALLER (INDX)   TO OPOPARRAFO (IDX-RECURSIVAS)
+                MOVE IDENNTRESU-ANT  TO OPRESUANT  (IDX-RECURSIVAS)
+      **********DISPLAY "++NUEVO CALLER " WKPARRAFOACTUAL
+                PERFORM VARYING INDX FROM 1 BY 1 UNTIL
+                  INDX > 2000 OR
+                  CALLER (INDX) = WKPARRAFOACTUAL
+                END-PERFORM
+                ADD 2 TO INDENTACION
+                GO TO MUESTRA-OUTLINE
+             ELSE
+
+      **********DISPLAY "++NO+CALLED "
+      **
+      * Recupera el estado anterior a una simulacion de recursividad
+      *
+                IF    IDX-RECURSIVAS > ZERO
+                   MOVE 'KO' TO ESTADOOK
+                   PERFORM WITH TEST AFTER VARYING AUX FROM 1 BY 1
+                     UNTIL ESTADOOK = 'OK'
+                       MOVE OPOSVUELTA (IDX-RECURSIVAS)
+                                                    TO INDX
+                       MOVE OPOPARRAFO (IDX-RECURSIVAS)
+                                                    TO WKPARRAFOACTUAL
+                       MOVE OPRESUANT (IDX-RECURSIVAS)
+                                                    TO IDENNTRESU-ANT
+
+                       SUBTRACT 1 FROM IDX-RECURSIVAS
+                       SUBTRACT 2 FROM INDENTACION
+                       IF INDENTACION < 1
+                            MOVE 1 TO INDENTACION
+                       END-IF
+                       IF  IDX-RECURSIVAS NOT > ZERO
+                           MOVE 'OK' TO ESTADOOK
+                       END-IF
+                       ADD 1 TO INDX
+                       IF WKPARRAFOACTUAL = CALLER(INDX)
+                            MOVE 'OK' TO ESTADOOK
+                       END-IF
+                   END-PERFORM
+
+      *************DISPLAY "++RECUPERAMOS " INDX " " CALLER (INDX)
+                   IF   IDX-RECURSIVAS > ZERO
+                        GO TO MUESTRA-OUTLINE
+                   END-IF
+                ELSE
+                   ADD 1 TO INDX
+                END-IF
+             END-IF.
+
+       MUESTRA-OUTLINE-EXIT.
+           EXIT.
+           DISPLAY "++NO DEBERIAS VER ESTE DISPLAY"
+           STOP RUN.
+      *
+      *RECURSIVE-FIND.
+      *    DISPLAY "§§RECURSIVE-FIND"
+      *****DISPLAY "##RECURSIVE-FIND " WKPARRAFOACTUAL
+      *
+      * preparamos la identacion visual recogiendo el nivel
+      *
+      *    PERFORM CONCATENA-PUNTOS
+      *
+      *preparamos visualmente ...
+      *
+      *    STRING IDENNTRESU  DELIMITED BY SPACE
+      *           WKPARRAFOACTUAL DELIMITED BY SPACE
+      *           INTO IDENNTRESU
+      *    END-STRING
+      *    INSPECT IDENNTRESU REPLACING ALL "." BY SPACE
+      *
+      *   stramos el elemento llamado ...
+      *
+      *    IF    IDENNTRESU NOT = IDENNTRESU-ANT
+      ***********DISPLAY IDENNTRESU
+      *          MOVE IDENNTRESU  TO OTLOUT
+      *          PERFORM PRINTOTLOUT
+      *          MOVE IDENNTRESU TO IDENNTRESU-ANT
+      *    END-IF.
+      * scamos a su vez las nuevas llamadas que este parrafo pueda
+      * oducir
+      *LOOP-LLAMADAS.
+      *    DISPLAY "§§LOOP-LLAMADAS"
+      *    IF   INDX2= ZERO
+      *    PERFORM VARYING INDX2 FROM 1 BY 1
+      *      UNTIL INDX2 > 2000 OR
+      *      CALLER (INDX2) = WKPARRAFOACTUAL OR
+      *      CALLER (INDX2) = SPACES
+      *    END-PERFORM
+      *    ELSE
+      *      ADD 1 TO INDX2
+      *      PERFORM VARYING INDX2 FROM 1 BY 1
+      *        UNTIL INDX2 > 2000 OR
+      *              CALLER (INDX2) = WKPARRAFOACTUAL OR
+      *              CALLER (INDX2) = SPACES
+      *      END-PERFORM
+      *    END-IF
+      *
+      *   el parrafo llama a otros parrafos? ...
+      *
+      *    IF WKPARRAFOACTUAL =
+      *       CALLER (INDX2) AND
+      *       CALLED (INDX2) NOT = SPACES
+      *
+      * Preparamos el punto de retono una vez mostardo el nuevo parrafo
+      *
+      *         MOVE INDX2           TO OPOSVUELTA (IDXREC)
+      *         MOVE WKPARRAFOACTUAL TO OPOPARRAFO (IDXREC)
+      *         MOVE IDENNTRESU-ANT  TO OPRESUANT  (IDXREC)
+      *         MOVE CALLED (INDX2)  TO WKPARRAFOACTUAL
+      *         ADD 1 TO IDXREC
+      **
+      * busqueda recursiva como tal ....
+      *
+      **********DISPLAY "##tratamos en recursiva "
+      ********** CALLER (INDX2) "." CALLED (INDX2) "." INDX2
+      *         PERFORM CONCATENA-PUNTOS
+      *         GO TO LOOP-LLAMADAS
+      *    ELSE
+      ********DISPLAY "##no llama a nadie " WKPARRAFOACTUAL
+      **
+      * el parrafo tratado no aporat nuevas llamadas ...
+      * recuperamos el punto en el que nos encontrabamos ...
+      *
+      *       SUBTRACT 1 FROM IDXREC
+      *
+      *       IF  IDXREC > ZERO
+      *           MOVE OPOPARRAFO (IDXREC) TO WKPARRAFOACTUAL
+      *           MOVE OPRESUANT  (IDXREC) TO IDENNTRESU-ANT
+      *           MOVE OPOSVUELTA (IDXREC) TO INDX2
+      *           GO TO RECURSIVE-FIND
+      *       END-IF
+      *
+      *    END-IF.
+      *FIN-RECURSIVE-FIND.
+      *    EXIT.
+
+       CONCATENA-PUNTOS.
+           DISPLAY "ÑÑconcatena-puntos"
+           INITIALIZE IDENNTRESU
+
+           PERFORM
+             VARYING INDX3 FROM 1 BY 1
+               UNTIL INDX3 > INDENTACION
+
+            STRING IDENNTRESU DELIMITED BY SPACE
+                   '.'   DELIMITED BY SIZE
+              INTO IDENNTRESU
+            END-STRING
+
+           END-PERFORM.
+      *****DISPLAY "##RE3SULTADO EN PUNTOS " IDENNTRESU.
+      *
+      *DESCONCATENA-PUNTOS.
+      *
+      *    SUBTRACT 4 FROM INDENTACION
+      *
+      *****DISPLAY "##DESCONCATENA-PUNTOS " INDENTACION
+      *
+      *    IF INDENTACION <= 1
+      *        MOVE ZERO TO INDENTACION
+      *    END-IF.
+      *
+      *****INITIALIZE IDENNTRESU.
+      *****
+      *****PERFORM
+      *****  VARYING INDX3
+      *****     FROM 1 BY 1
+      *****   UNTIL INDX3 > INDENTACION
+      *****
+      *****   STRING IDENNTRESU DELIMITED BY SPACE
+      *****          '.'   DELIMITED BY SIZE
+      *****     INTO IDENNTRESU
+      *****   END-STRING
+      *****
+      *****END-PERFORM.
+      *****DISPLAY "##RE4SULTADO EN PUNTOS " IDENNTRESU.
+      *
+       PRINTOTLOUT.
+           DISPLAY "ÑÑPRINTOTLOUT"
+      **** DISPLAY OTLOUT(1:130).
+           PERFORM CONCATENA-PUNTOS
+
+      *preparamos visualmente ...
+
+           STRING IDENNTRESU  DELIMITED BY SPACE
+                  CALLER (INDX) DELIMITED BY SPACE
+                  INTO IDENNTRESU
+           END-STRING
+           INSPECT IDENNTRESU REPLACING ALL "." BY SPACE
+
+      *   stramos el elemento llamado ...
+
+           IF    IDENNTRESU NOT = IDENNTRESU-ANT
+      ***********DISPLAY IDENNTRESU
+                 MOVE IDENNTRESU  TO OTLOUT
+                 DISPLAY OTLOUT(1:130)
+                 MOVE IDENNTRESU TO IDENNTRESU-ANT
+           END-IF.
+      **   DISPLAY
+      **    INDX "." IDXREC "." INDENTACION
+      **      "." WKPARRAFOACTUAL (1:10).
+
+       LEE-LINEA-CODIGO.
+
+           READ PROGRAMA
+               AT END
+                  SET FINAL-PROGRAMA-FUENTE TO TRUE
+           END-READ.
+
+           IF    SIN-PROGRAM-ID
+
+                 MOVE ZEROES TO CONTADOR
+
+                 INSPECT ED1-DATEN TALLYING CONTADOR
+                   FOR ALL ' PROGRAM-ID.'
+
+                 INSPECT ED1-DATEN TALLYING CONTADOR
+                   FOR ALL ' PROGRAM-ID '
+
+                 IF    CONTADOR > ZERO
+
+                       MOVE 'N' TO CTRL-PROGRAM-ID
+
+                       PERFORM VARYING IDX2 FROM 80 BY -1 UNTIL
+                          IDX2 < 1 OR ED1-DATEN(IDX2:1) NOT = SPACES
+                       END-PERFORM
+
+                       PERFORM VARYING IDX FROM IDX2 BY -1 UNTIL
+                              IDX < 1 OR ED1-DATEN(IDX:1) = SPACE
+                       END-PERFORM
+
+                       COMPUTE IDX3 = IDX2 - IDX
+
+                       MOVE ED1-DATEN(IDX:IDX3) TO WK-PROGRAMA
+                 END-IF.
+      *
+       WHAT-WE-ARE-TALKING-ABOUT.
+
+           MOVE ZEROES TO CTRL-FINAL-SYSIN
+           OPEN INPUT SYSIN
+           MOVE "N" TO CTRL-FINAL-SYSIN
+
+           PERFORM
+               VARYING INDICE FROM 1 BY 1
+                 UNTIL INDICE > 20 OR
+                             CTRL-FINAL-SYSIN = "S"
+
+               IF   ESTAMOS-EN-DERIVA
+
+                    PERFORM LEE-PARAMETROS
+
+                    MOVE INPUT-LINE TO CTRL-OPERACION
+                    MOVE "N" TO CTRL-ESTAMOS-EN-DERIVA
+
+      ** v10
+      *  filtramos codigo condicional para reducir el tamaño de los
+      *  logs del sistema; se esta produciendo el abend 722 porque
+      *  somos capaces de hacerlos reventar por espacio
+      *
+
+                    PERFORM FIJA-CODIGOCOND-DEFAULT THRU
+                        FIN-FIJA-CODIGOCOND-DEFAULT
+      **
+      **
+      * solo para fricadas y depuraciones propias en el codigo
+      *
+                    if INPUT-LINE (72:1)  = 'J'
+                       move 'S' to ctrl-depuracion
+                       move 'B' to CTRL-BETA
+                    end-if
+      **
+                    IF  PONERDISPLAYS     OR
+                        QUITARLOSDISPLAYS OR
+                        ANALIZAR          OR
+                        JERARQUIA         OR
+                        OUTLINE           OR
+                        COFFSETS
+
+                        IF    ANALIZAR OR OUTLINE
+                          DISPLAY "OUTLINE DEL PROGRAMA " WK-PROGRAMA
+                        END-IF
+                        IF    JERARQUIA
+                          DISPLAY "JERARQUIA DE PARRAFOS DEL PROGRAMA "
+                            WK-PROGRAMA
+                        END-IF
+                    ELSE
+                        DISPLAY "ANALIZAR,QUITAR,PONER DISPLAYS"
+                                " OUTLINE O CALCULAR OFFSETS?"
+      ******************MOVE 12 TO RETURN-CODE
+                        STOP RUN
+                    END-IF
+
+                    MOVE SPACES TO NOMVAR (INDICE)
+               END-IF
+
+               MOVE SPACES TO INPUT-LINE
+
+               PERFORM LEE-PARAMETROS
+
+           END-PERFORM.
+
+       EXIT-WHAT-WE-ARE-TALKING-ABOUT.
+           EXIT.
+       FIJA-CODIGOCOND-DEFAULT.
+
+           MOVE ZEROES TO CONTADOR-YES CONTADOR-NO
+
+           INSPECT CODIGO-CONDICIONADO TALLYING CONTADOR-YES
+              FOR ALL 'DEFAULT=YES'
+           INSPECT CODIGO-CONDICIONADO TALLYING CONTADOR-YES
+              FOR ALL 'default=yes'.
+           INSPECT CODIGO-CONDICIONADO TALLYING CONTADOR-NO
+              FOR ALL 'DEFAULT=NO'
+           INSPECT CODIGO-CONDICIONADO TALLYING CONTADOR-NO
+              FOR ALL 'default=no'.
+
+           IF    CONTADOR-YES > ZERO OR
+                 CODIGO-CONDICIONADO = SPACES
+                 MOVE "W5A8-DISPLAY" TO CODIGO-CONDICIONADO
+           ELSE
+                 IF    CONTADOR-NO > ZERO
+                       MOVE SPACES TO CODIGO-CONDICIONADO
+                 END-IF
+           END-IF.
+
+       FIN-FIJA-CODIGOCOND-DEFAULT.
+           EXIT.
+
+       LEE-PARAMETROS.
+
+           READ SYSIN
+               AT END
+                  MOVE "S" TO CTRL-FINAL-SYSIN
+           NOT AT END
+                  MOVE INPUT-LINE TO NOMVAR (INDICE)
+                  IF NOT JERARQUIA
+                     PERFORM VARYING AUXI1 FROM 80 BY -1
+                       UNTIL AUXI1 < 1 OR
+                             NOMVAR (INDICE)(AUXI1:1) NOT = SPACE
+                       MOVE "#" TO NOMVAR (INDICE)(AUXI1:1)
+                     END-PERFORM
+                  END-IF
+           END-READ.
+
+       INICIALIZACIONES.
+
+            EXEC SQL
+               SET :COMPILE-TS  = CURRENT TIMESTAMP
+            END-EXEC
+
+           OPEN INPUT  PROGRAMA
+
+           IF    D1AN-STATUS-ED1 NOT = ZEROES
+                 DISPLAY "HAY PROBLEMAS CON EL PROGRAMA FUENTE "
+                    D1AN-STATUS-ED1
+      ********** MOVE 12 TO RETURN-CODE
+                 STOP RUN
+           END-IF
+
+           PERFORM
+             VARYING INDICE FROM 1 BY 1
+               UNTIL INDICE > 200
+
+               INITIALIZE NOMVAR (INDICE)
+
+           END-PERFORM.
+
+           PERFORM
+             VARYING INDICE FROM 1 BY 1
+               UNTIL INDICE > 2000
+
+               INITIALIZE CALLER (INDICE)
+               INITIALIZE CALLED (INDICE)
+
+           END-PERFORM.
+
+           INITIALIZE TABLA-OUTLINE CURDISPLAY.
+           MOVE ZEROES TO INDX-CURSOR-LINES
+
+           PERFORM WHAT-WE-ARE-TALKING-ABOUT THRU
+              EXIT-WHAT-WE-ARE-TALKING-ABOUT.
+
+       DISPLAYAR-VARIABLES.
+
+           MOVE ZERO TO INDICE
+
+           INITIALIZE WK-DISPLAY WK-DISPLAY-INTENTO
+
+           PERFORM
+             VARYING INDICE FROM 1 BY 1
+               UNTIL INDICE > 200 OR NOMVAR (INDICE) = SPACES
+
+                   MOVE SPACES TO WK-DISPLAY WK-DISPLAY-INTENTO
+
+                   STRING '           DISPLAY "++' DELIMITED BY SIZE
+                          NOMVAR (INDICE)          DELIMITED BY "##"
+                          ' = " '                  DELIMITED BY SIZE
+                     INTO WK-DISPLAY
+                   END-STRING
+
+      * tratamos de mostrar el contenido de la variable a continuacion
+      *
+                   STRING '           DISPLAY "++' DELIMITED BY SIZE
+                          NOMVAR (INDICE)          DELIMITED BY SPACES
+                          ' = " '                  DELIMITED BY SIZE
+                          NOMVAR (INDICE)          DELIMITED BY "##"
+                     INTO WK-DISPLAY-INTENTO
+                     ON OVERFLOW
+                         DISPLAY WK-DISPLAY
+                         INITIALIZE WK-DISPLAY WK-DISPLAY-INTENTO
+
+                         STRING '              '
+                                 DELIMITED BY SIZE
+                              NOMVAR (INDICE)      DELIMITED BY "##"
+                           INTO WK-DISPLAY
+                         END-STRING
+
+                         MOVE '*>++DELETE' TO WK-DISPLAY (61:10)
+                         MOVE '        '   TO WK-DISPLAY (73:7)
+
+                         DISPLAY WK-DISPLAY
+
+                     NOT ON OVERFLOW
+                         DISPLAY WK-DISPLAY-INTENTO
+                   END-STRING
+      * fin tratamos
+                   INITIALIZE WK-DISPLAY WK-DISPLAY-INTENTO
+
+           END-PERFORM.
+
+           INITIALIZE WK-DISPLAY WK-DISPLAY-INTENTO.
+
+       PROCESADO-DEL-REGISTRO.
+
+           IF   ANALIZAR
+                PERFORM ANALIZAR-ESTRUCTURA
+           ELSE
+                IF   PONERDISPLAYS
+                     PERFORM PON-LOS-P-DISPLAYS
+                ELSE
+                     IF    QUITARLOSDISPLAYS
+                           PERFORM QUITA-LOS-P-DISPLAYS THRU
+                               FIN-QUITA-LOS-P-DISPLAYS
+                     ELSE
+                           IF    OUTLINE
+                                 PERFORM ANALIZAR-OUTLINE
+                           ELSE
+                                 PERFORM ANALIZAR-JERARQUIA
+                           END-IF
+                     END-IF
+                END-IF
+           END-IF.
+      /
+      **
+      * se basa en la misma tabla de extraccion de parrafos ...
+      *
+       ANALIZAR-OUTLINE.
+
+           PERFORM ANALIZAR-JERARQUIA.
+
+       ANALIZAR-JERARQUIA.
+
+           IF    ED1-DATEN(7:1) = '*'
+           THEN
+                 CONTINUE
+           ELSE
+           IF    PROCEDURE-LEIDA
+           THEN
+                 IF    ED1-DATEN (8:4) NOT = SPACES AND
+                       ED1-DATEN (8:4) NOT = '****' AND
+                      (ED1-DATEN (7:1) = SPACE OR "/")
+                       MOVE ED1-DATEN (8:30) TO WK-DISPLAY2-CALLER
+                       ADD 1 TO INDICE
+                       INSPECT WK-DISPLAY2-CALLER REPLACING
+                         ALL "SECTION." BY SPACES
+                         ALL "."        BY SPACES
+                       MOVE WK-DISPLAY2-CALLER TO CALLER(INDICE)
+                       MOVE SPACES             TO CALLED(INDICE)
+                 ELSE
+                       MOVE ZEROES TO CONTADOR
+
+                       INSPECT ED1-DATEN TALLYING CONTADOR
+                         FOR ALL ' PERFORM '
+
+                       IF  CONTADOR > ZERO
+                           PERFORM VARYING IDX FROM 1 BY 1 UNTIL
+                               IDX > 80 OR ED1-DATEN(IDX:8) =
+                                 'PERFORM '
+                           END-PERFORM
+
+                           ADD 8 TO IDX
+
+                           PERFORM VARYING IDX FROM IDX BY 1 UNTIL
+                               IDX > 80 OR ED1-DATEN(IDX:1) NOT = SPACE
+                           END-PERFORM
+
+                           MOVE ED1-DATEN(IDX:30) TO  WK-DISPLAY3
+
+                           IF    CALLED(INDICE) = SPACES
+                                 MOVE WK-DISPLAY3 TO CALLED(INDICE)
+                           ELSE
+                                 ADD 1 TO INDICE
+                                 MOVE WK-DISPLAY3 TO CALLED(INDICE)
+                                 MOVE WK-DISPLAY2-CALLER TO
+                                    CALLER(INDICE)
+                           END-IF
+                       END-IF
+           ELSE
+                 IF    ED1-DATEN (7:10) = ' PROCEDURE'
+                       MOVE 'S' TO CTRL-PROCEDURE
+                 END-IF
+           END-IF.
+      **********
+       MUESTRA-JERARQUIA.
+
+           PERFORM VARYING IDX2 FROM 200 BY -1 UNTIL
+              IDX2 < 1 OR NOMVAR(IDX2) NOT = SPACES
+           END-PERFORM
+
+           MOVE "...." TO WK-NIVEL
+           DISPLAY NOMVAR(1)
+
+           PERFORM
+             VARYING IDX    FROM 1 BY 1
+               UNTIL IDX    > 200 OR NOMVAR (IDX) = SPACES
+
+                 PERFORM VARYING INDICE FROM 1 BY 1
+                   UNTIL INDICE > 2000
+                      IF    CALLED(INDICE) = NOMVAR(IDX)
+                            STRING WK-NIVEL DELIMITED BY SPACES
+                                   CALLER(INDICE) DELIMITED BY SIZE
+                            INTO WK-DISPLAY
+                            DISPLAY WK-DISPLAY
+                            INITIALIZE WK-DISPLAY
+                            MOVE CALLER(INDICE)TO WK-PARRAFO-LV
+                            MOVE "...." TO WK-NIVEL-LV
+                            PERFORM RECORRE-NIVELES
+                      END-IF
+                 END-PERFORM
+           END-PERFORM.
+
+       FIN-MUESTRA-JERARQUIA.
+           EXIT.
+
+       RECORRE-NIVELES.
+
+           INITIALIZE WK-DISPLAY-LV
+
+           PERFORM VARYING IND-LV FROM 1 BY 1
+             UNTIL IND-LV > 2000
+                ADD 1 TO ITER-LV
+                IF    CALLED(IND-LV) = WK-PARRAFO-LV
+                      STRING "...." DELIMITED BY SIZE
+                             WK-NIVEL-LV DELIMITED BY SPACES
+                             CALLER(IND-LV) DELIMITED BY SIZE
+                      INTO WK-DISPLAY-LV
+                      DISPLAY WK-DISPLAY-LV
+                      INITIALIZE WK-DISPLAY-LV
+                      MOVE CALLER(IND-LV) TO WK-PARRAFO-LV
+                      GO TO RECORRE-NIVELES
+                END-IF
+           END-PERFORM.
+
+       ANALIZAR-ESTRUCTURA.
+
+           IF    ED1-DATEN(7:1) = '*'
+           THEN
+                 CONTINUE
+           ELSE
+           IF    PROCEDURE-LEIDA
+           THEN
+                 IF    ED1-DATEN (8:4) NOT = SPACES AND
+                       ED1-DATEN (8:4) NOT = '****' AND
+                       ED1-DATEN (7:1) = SPACE OR "/"
+                       DISPLAY ED1-DATEN
+                 ELSE
+                       MOVE ZEROES TO CONTADOR
+
+                       INSPECT ED1-DATEN TALLYING CONTADOR
+                         FOR ALL ' PERFORM '
+
+                       INSPECT ED1-DATEN TALLYING CONTADOR
+                         FOR ALL ' END-PERFORM '
+
+                       INSPECT ED1-DATEN TALLYING CONTADOR
+                         FOR ALL ' CALL '
+
+                       INSPECT ED1-DATEN TALLYING CONTADOR
+                         FOR ALL ' READ '
+
+                       INSPECT ED1-DATEN TALLYING CONTADOR
+                         FOR ALL ' WRITE '
+
+                       INSPECT ED1-DATEN TALLYING CONTADOR
+                         FOR ALL ' SELECT '
+
+                       INSPECT ED1-DATEN TALLYING CONTADOR
+                         FOR ALL ' INSERT '
+
+                       INSPECT ED1-DATEN TALLYING CONTADOR
+                         FOR ALL ' UPDATE '
+
+                       INSPECT ED1-DATEN TALLYING CONTADOR
+                         FOR ALL ' DELETE '
+
+                       INSPECT ED1-DATEN TALLYING CONTADOR
+                         FOR ALL ' FROM '
+
+                       INSPECT ED1-DATEN TALLYING CONTADOR
+                         FOR ALL ' INTO '
+
+                       IF    CONTADOR > ZERO
+                             DISPLAY ED1-DATEN
+                       END-IF
+
+                       PERFORM VARIABLES-A-MOSTRAR
+           ELSE
+                 IF    ED1-DATEN (7:10) = ' PROCEDURE'
+                       MOVE 'S' TO CTRL-PROCEDURE
+                       DISPLAY ED1-DATEN
+                 ELSE
+                       PERFORM TABLAS-DB2
+                       PERFORM VARIABLES-A-MOSTRAR
+                 END-IF
+           END-IF.
+
+       VARIABLES-A-MOSTRAR.
+
+           PERFORM
+             VARYING IDX    FROM 1 BY 1
+               UNTIL IDX    > 200 OR NOMVAR (IDX) = SPACES
+
+                     MOVE ZEROES TO CONTADOR
+
+                     INSPECT ED1-DATEN TALLYING CONTADOR
+                        FOR ALL NOMVAR (IDX)
+
+                     IF    CONTADOR > ZERO
+                           DISPLAY ED1-DATEN
+                     END-IF
+           END-PERFORM.
+
+       TABLAS-DB2.
+
+           MOVE ZEROES TO CONTADOR
+
+           INSPECT ED1-DATEN TALLYING CONTADOR
+             FOR ALL 'DECLARE '
+
+           INSPECT ED1-DATEN TALLYING CONTADOR
+             FOR ALL 'TABLE'
+
+           IF                CONTADOR > 1
+                 DISPLAY ED1-DATEN
+           END-IF.
+
+       QUITA-LOS-P-DISPLAYS.
+
+           INITIALIZE WK-DISPLAY CONTADOR
+
+           STRING '           DISPLAY "++' DELIMITED BY SIZE
+                  GANCHO                               DELIMITED BY SIZE
+                  '-->'                                DELIMITED BY SIZE
+             INTO WK-DISPLAY
+           END-STRING
+
+           INSPECT ED1-DATEN TALLYING CONTADOR
+             FOR ALL 'DISPLAY "++'
+           INSPECT ED1-DATEN TALLYING CONTADOR
+             FOR ALL "DISPLAY '++"
+           INSPECT ED1-DATEN TALLYING CONTADOR
+             FOR ALL "*>++DELETE"
+      *******FOR ALL WK-DISPLAY
+
+           IF    CONTADOR > ZERO
+           THEN
+                 CONTINUE
+           ELSE
+                 DISPLAY ED1-DATEN
+           END-IF.
+
+       FIN-QUITA-LOS-P-DISPLAYS.
+           EXIT.
+
+       PON-LOS-P-DISPLAYS.
+
+           IF  ED1-DATEN (7:1) = '*' OR '/' OR '-'
+               DISPLAY ED1-DATEN
+           ELSE
+
+           IF    PROCEDURE-LEIDA
+           THEN
+                 DISPLAY ED1-DATEN
+      **
+      * Es un parrafo? ...
+      *
+                 IF    ED1-DATEN (8:4) NOT = SPACES
+
+                       IF  DISPLAY-INICIO-NO-HECHO
+
+                           IF CODIGO-CONDICIONADO (1:30) NOT = SPACES
+                              PERFORM HEAT-CONDITIONAL-CODE
+                           END-IF
+
+                           INITIALIZE WK-DISPLAY
+                           ACCEPT WK-FECHA FROM DATE
+                           ACCEPT WK-HORA  FROM TIME
+                           MOVE FUNCTION WHEN-COMPILED TO COMPILE-TIME
+
+                           INITIALIZE COMPILE-TIME
+                           STRING WK-FECHA DELIMITED BY SIZE
+                                  WK-HORA  DELIMITED BY SIZE
+                             INTO COMPILE-TIME
+                           END-STRING
+
+      *********************IF  AJUSTE-SQL OR SIN-DEFINIR
+      *********************  COMPUTE LONGITUD-LINEA =
+      *********************     LONGITUD-LINEA / LONGITUD-SQL
+      *********************END-IF
+
+                           MOVE 'S' TO CTRL-DISPLAY-INICIO-HECHO
+                           STRING '           '      DELIMITED BY SIZE
+                                  'DISPLAY "++ DEBUG 2.0 2021-24 '
+                                                     DELIMITED BY SIZE
+                                  'EuA-Barcelona Debug utility'
+                                                     DELIMITED BY SIZE
+                            WK-PROGRAMA              DELIMITED BY SIZE
+      ******************    ' Let the Trace be with you...'
+      ******************                             DELIMITED BY SIZE
+                             '" '                    DELIMITED BY SIZE
+                             INTO WK-DISPLAY
+                           END-STRING
+
+                           DISPLAY WK-DISPLAY
+                           INITIALIZE WK-DISPLAY
+
+                           STRING '           DISPLAY "++ '
+                                                     DELIMITED BY SIZE
+                            'Debug set in source '   DELIMITED BY SIZE
+                             COMPILE-TS              DELIMITED BY SIZE
+                             '" '                    DELIMITED BY SIZE
+                             INTO WK-DISPLAY
+                           END-STRING
+
+                           DISPLAY WK-DISPLAY
+                           INITIALIZE WK-DISPLAY
+
+                           STRING '           DISPLAY "++'
+                                                     DELIMITED BY SIZE
+                             ' ...Let the Trace be with you...'
+                                                     DELIMITED BY SIZE
+                             '" '                    DELIMITED BY SIZE
+                             INTO WK-DISPLAY
+                           END-STRING
+
+                           DISPLAY WK-DISPLAY
+                           INITIALIZE WK-DISPLAY
+      *********************
+      *********************DISPLAY WK-DISPLAY
+      *********************INITIALIZE WK-DISPLAY
+      *********************STRING '           DISPLAY "++'
+      *********************                          DELIMITED BY SIZE
+      ********************* 'Feel free to send us sugestions, comments'
+      ********************* 'or improvements on the utility us to '
+      *********************                          DELIMITED BY SIZE
+      ********************* 'EuA VWGS Advanced Support VW Group '
+      *********************                          DELIMITED BY SIZE
+      *********************  '" '                    DELIMITED BY SIZE
+      *********************  INTO WK-DISPLAY
+      *********************END-STRING
+      *********************
+      *********************DISPLAY WK-DISPLAY
+      *********************INITIALIZE WK-DISPLAY
+      **
+      * es una beta?
+      *
+                           IF VERSION-BETA
+                              CONTINUE
+      ******************** THEN DISPLAY "++it's a beta version "
+                           END-IF
+      *
+                           IF CODIGO-CONDICIONADO (1:30) NOT = SPACES
+                              PERFORM TAIL-CONDITIONAL-CODE
+                           END-IF
+                       END-IF
+
+                       IF CODIGO-CONDICIONADO (1:30) NOT = SPACES
+                          PERFORM HEAT-CONDITIONAL-CODE
+                       END-IF
+
+                       INITIALIZE WK-DISPLAY WK-DISPLAY-INI
+
+                       IF CODIGO-CONDICIONADO (1:30) NOT = SPACES
+                         STRING '             DISPLAY "++'
+                             DELIMITED BY SIZE
+                           INTO WK-DISPLAY-INI
+                         END-STRING
+                       ELSE
+                         STRING '           DISPLAY "++'
+                             DELIMITED BY SIZE
+                           INTO WK-DISPLAY-INI
+                         END-STRING
+                       END-IF
+
+                       STRING WK-DISPLAY-INI           DELIMITED BY SIZE
+                              GANCHO                   DELIMITED BY SIZE
+                              '-->'                    DELIMITED BY SIZE
+                              ED1-DATEN(8:30)          DELIMITED BY SIZE
+                              '"'                      DELIMITED BY SIZE
+                         INTO WK-DISPLAY
+                       END-STRING
+
+                       DISPLAY WK-DISPLAY
+
+                       PERFORM DISPLAYAR-VARIABLES
+
+                       IF CODIGO-CONDICIONADO (1:30) NOT = SPACES
+                          PERFORM TAIL-CONDITIONAL-CODE
+                       END-IF
+                 ELSE
+      **
+      * Miscelaneo de linea ...
+      *
+                     PERFORM CHK-VERB-FIN-PROGRAMA
+
+                     IF    QUIERO-VER-SQL
+                           PERFORM SQL-EN-DETALLE
+                     END-IF
+                 END-IF
+           ELSE
+      *
+                 IF  VERSION-BETA
+                 PERFORM EXTRAE-LINEA-SI-CURSOR
+                 END-IF
+      *
+                 DISPLAY ED1-DATEN
+                 MOVE ZERO TO CONTADOR
+
+                 IF    ED1-DATEN (7:10) = ' PROCEDURE'
+                       MOVE 'S' TO CTRL-PROCEDURE
+      *****************DISPLAY
+      *****************  "----+-*--1----+----2----+----3----+----4"
+      *****************  "----+----5----+----6----+----7--"
+                 END-IF
+           END-IF.
+
+       EXTRAE-LINEA-SI-CURSOR.
+
+           IF  CURSOR-PROCESO
+
+               ADD  1 TO INDX-CURSOR-LINES
+               MOVE CURSORNAME TO CURSOR-NAME (INDX-CURSOR-LINES)
+               MOVE ED1-DATEN  TO CURSOR-LINE (INDX-CURSOR-LINES)
+
+               MOVE 99 TO INDX-TNT
+
+               PERFORM VARYING INDX-TNT FROM 8 BY 1
+                 UNTIL INDX-TNT > 80 *>eliminamos espacios al principio
+                  IF CURSOR-LINE (INDX-CURSOR-LINES)(INDX-TNT:1)
+                      NOT = SPACE
+                     MOVE CURSOR-LINE(INDX-CURSOR-LINES)(INDX-TNT:) TO
+                          CURSOR-LINE(INDX-CURSOR-LINES)(8:)
+                     MOVE 81 TO INDX-TNT
+                  END-IF                                   *>por un
+               END-PERFORM
+
+               PERFORM VARYING INDX-TNT FROM 8 BY 1
+                 UNTIL INDX-TNT > 80
+                  IF CURSOR-LINE (INDX-CURSOR-LINES)(INDX-TNT:1)
+                      = SPACE
+                     MOVE INDX-TNT TO INDX-TNT2
+                     ADD 1 TO INDX-TNT2 INDX-TNT
+                     PERFORM VARYING INDX-TNT2 FROM INDX-TNT2 BY 1
+                       UNTIL INDX-TNT2 > 80 OR
+                           CURSOR-LINE (INDX-CURSOR-LINES)(INDX-TNT:1)
+                              NOT = SPACE
+                     END-PERFORM
+                     MOVE CURSOR-LINE(INDX-CURSOR-LINES)(INDX-TNT2:) TO
+                          CURSOR-LINE(INDX-CURSOR-LINES)(INDX-TNT:)
+                  END-IF
+               END-PERFORM
+      *        DISPLAY "++CURNAME " CURSOR-NAME (INDX-CURSOR-LINES)
+      *        DISPLAY "++CURLINE " CURSOR-LINE (INDX-CURSOR-LINES)
+
+               INITIALIZE  CONTADOR-FINCURSOR
+
+               INSPECT ED1-DATEN TALLYING CONTADOR-FINCURSOR
+                 FOR ALL 'END-EXEC'
+
+               IF CONTADOR-FINCURSOR > ZERO
+                  MOVE 'N' TO CTRL-CURSOR-PROCESO
+      *           DISPLAY "++CTRL-CURSOR-PROCESO " CTRL-CURSOR-PROCESO
+               END-IF
+           ELSE
+               INITIALIZE CURSOR-TOKENS
+
+               UNSTRING ED1-DATEN DELIMITED BY ALL SPACES
+                   INTO TOKEN1 TOKEN2 TOKEN3 TOKEN4 TOKEN5
+                        TOKEN6 TOKEN7 TOKEN8 TOKEN9 TOKEN10
+               END-UNSTRING
+
+
+               PERFORM VARYING INDX-TOKEN
+                  FROM 1 BY 1
+                 UNTIL INDX-TOKEN > 10 OR
+                       TOKEN0(INDX-TOKEN) = 'DECLARE'   OR
+                       TOKEN0(INDX-TOKEN) = 'END-EXEC'  OR
+                       TOKEN0(INDX-TOKEN) = 'END-EXEC.'
+               END-PERFORM
+
+               MOVE INDX-TOKEN TO INDX-CURSOR-IND INDX-CURSOR-NAME
+               ADD 2 TO INDX-CURSOR-IND
+               ADD 1 TO INDX-CURSOR-NAME
+
+      *        DISPLAY "++TOKEN0( " INDX-TOKEN ")= " TOKEN0(INDX-TOKEN)
+      *        DISPLAY "++TOKEN0( " INDX-CURSOR-IND ")= "
+      *                "++ " TOKEN0(INDX-CURSOR-IND)
+      *        DISPLAY "++TOKEN0( " INDX-CURSOR-NAME ")= "
+      *                "++ " TOKEN0(INDX-CURSOR-NAME)
+
+               IF INDX-TOKEN < 11 AND
+                  TOKEN0(INDX-TOKEN)      = 'DECLARE' AND
+                  TOKEN0(INDX-CURSOR-IND) = 'CURSOR'
+                  MOVE 'S' TO CTRL-CURSOR-PROCESO
+      *           DISPLAY "++CTRL-CURSOR-PROCESO " CTRL-CURSOR-PROCESO
+                  MOVE TOKEN0(INDX-CURSOR-NAME) TO CURSORNAME
+                  ADD 1 TO INDX-CURSOR-LINES
+                  MOVE CURSORNAME TO CURSOR-NAME (INDX-CURSOR-LINES)
+                  MOVE ED1-DATEN  TO CURSOR-LINE (INDX-CURSOR-LINES)
+               END-IF
+
+               IF INDX-TOKEN < 11 AND
+                  TOKEN0(INDX-TOKEN) = 'END-EXEC'  OR
+                  TOKEN0(INDX-TOKEN) = 'END-EXEC.'
+                  MOVE 'N' TO CTRL-CURSOR-PROCESO
+      *           DISPLAY "++CTRL-CURSOR-PROCESO " CTRL-CURSOR-PROCESO
+               END-IF
+           END-IF.
+
+       HEAT-CONDITIONAL-CODE.
+
+              INITIALIZE WK-DISPLAY
+
+              STRING '           IF '    DELIMITED BY SIZE
+                          CODIGO-CONDICIONADO DELIMITED BY SIZE
+                INTO WK-DISPLAY
+              END-STRING
+
+              MOVE '*>++DELETE'        TO WK-DISPLAY (61:10)
+              MOVE '        '          TO WK-DISPLAY (73:7)
+
+              DISPLAY WK-DISPLAY.
+
+       TAIL-CONDITIONAL-CODE.
+
+              INITIALIZE WK-DISPLAY
+
+              MOVE '           END-IF' TO WK-DISPLAY
+              MOVE '*>++DELETE'        TO WK-DISPLAY (61:10)
+              MOVE '        '          TO WK-DISPLAY (73:7)
+
+              DISPLAY WK-DISPLAY.
+
+       CHK-VERB-FIN-PROGRAMA.
+
+           INITIALIZE  CONTADOR-FINPGM
+
+           INSPECT ED1-DATEN TALLYING CONTADOR-FINPGM
+           FOR ALL ' STOP RUN'
+
+           INSPECT ED1-DATEN TALLYING CONTADOR-FINPGM
+           FOR ALL ' GOBACK'
+
+           IF    CONTADOR-FINPGM > ZEROES AND
+                 ED1-DATEN (7:1) NOT = "*"
+
+                 ACCEPT WK-FECHA FROM DATE
+                 ACCEPT WK-HORA  FROM TIME
+                 INITIALIZE WK-DISPLAY
+
+                 STRING '           DISPLAY "++END-DEBUG '
+                                        DELIMITED BY SIZE
+                            WK-PROGRAMA DELIMITED BY SIZE
+                            ' '         DELIMITED BY SIZE
+                            GANCHO      DELIMITED BY SIZE
+                            ' DD '      DELIMITED BY SIZE
+                            WK-FECHA    DELIMITED BY SIZE
+                             " HH "     DELIMITED BY SIZE
+                            WK-HORA     DELIMITED BY SIZE
+                             '".'       DELIMITED BY SIZE
+                   INTO    WK-DISPLAY
+                 END-STRING
+                       DISPLAY WK-DISPLAY
+
+           END-IF.
+
+       SQL-EN-DETALLE.
+
+           INITIALIZE  NSQL
+           MOVE "N" TO CTRL-FINAL-SQL
+           INITIALIZE  SQL-CONTADOR
+
+           PERFORM INICIALIZA-TABLA-SQL
+
+           INSPECT ED1-DATEN TALLYING SQL-CONTADOR
+             FOR ALL ' EXEC '
+
+           INSPECT ED1-DATEN TALLYING SQL-CONTADOR
+             FOR ALL ' SQL '
+
+           INSPECT ED1-DATEN TALLYING SQL-CONTADOR
+             FOR ALL ' SQL. '
+
+           IF    SQL-CONTADOR > 1
+                 PERFORM TRATAMIENTO-SENTENCIA-SQL
+                   UNTIL FINAL-SQL OR FINAL-PROGRAMA-FUENTE
+           END-IF.
+
+       TRATAMIENTO-SENTENCIA-SQL.
+
+           INITIALIZE  SQL-CONTADOR
+
+           INSPECT ED1-DATEN TALLYING SQL-CONTADOR
+             FOR ALL ' END-EXEC'
+
+           IF    SQL-CONTADOR > ZERO
+                 MOVE "S" TO CTRL-FINAL-SQL
+           END-IF.
+
+           IF  ED1-DATEN(7:1) NOT = '*'
+               PERFORM VARYING ISQL FROM 1 BY 1
+                 UNTIL ISQL > 72
+                 MOVE ED1-DATEN(ISQL:1) TO WK-AUXILIAR(ISQL:1)
+               END-PERFORM
+
+               PERFORM GUARDALO-TABLA-SQLES
+           END-IF
+
+           IF    FINAL-SQL
+      **
+      * IF de codigo condicional ....
+      *
+                 IF CODIGO-CONDICIONADO (1:30) NOT = SPACES
+                    PERFORM HEAT-CONDITIONAL-CODE
+                 END-IF
+      **
+      * SQL original y con reemplazo de variables ....
+      *
+                 IF QUIERO-VER-LIT-SQL
+                    PERFORM MUESTRA-SQL-LITERAL
+                 END-IF
+
+                 PERFORM MUESTRA-SQL
+      **
+      * END-IF de codigo condicional ....
+      *
+                 IF CODIGO-CONDICIONADO (1:30) NOT = SPACES
+                    PERFORM TAIL-CONDITIONAL-CODE
+                 END-IF
+           END-IF
+
+           PERFORM LEE-LINEA-CODIGO
+           DISPLAY ED1-DATEN.
+
+       TRATAMIENTO-SQL-EXIT.
+           EXIT.
+
+       MUESTRA-SQL-LITERAL.
+
+           MOVE "N" TO CTRL-SQL-MOSTRADO
+
+           PERFORM VARYING NSQL FROM 1 BY 1
+             UNTIL SQL-MOSTRADO
+
+               INITIALIZE SQL-CONTADOR
+      *|||||||
+               PERFORM ELIMINA-ESPACIOS-SQL
+      *|||||||
+               INSPECT SENTENCIA-SQL (NSQL) TALLYING SQL-CONTADOR
+                 FOR ALL 'END-EXEC'
+
+               IF    SQL-CONTADOR > ZERO
+                     MOVE "S" TO CTRL-SQL-MOSTRADO
+               END-IF
+
+               INITIALIZE WK-DISPLAY-SQL
+                          SENTENCIA-FINAL
+
+               MOVE SENTENCIA-SQL (NSQL) TO
+                    SENTENCIA-FINAL
+
+               STRING '           DISPLAY "++' DELIMITED BY SIZE
+                      SENTENCIA-FINAL          DELIMITED BY SIZE
+                 INTO WK-DISPLAY-SQL
+               END-STRING
+
+               IF WK-DISPLAY-SQL (73:5) NOT = SPACES *> no cabe
+                  MOVE '*' TO WK-DISPLAY-SQL (07:1)  *> revisaremos
+               END-IF
+
+               INITIALIZE SQL-CONTADOR
+               INSPECT WK-DISPLAY-SQL TALLYING SQL-CONTADOR
+                 FOR ALL '"'
+               DIVIDE SQL-CONTADOR BY 2 GIVING DIV REMAINDER REM
+               IF  REM > 0
+                 MOVE '"'  TO WK-DISPLAY-SQL (72:1) *>una ñapa
+               END-IF
+               DISPLAY WK-DISPLAY-SQL (1:72)
+
+           END-PERFORM.
+
+           MOVE   '           DISPLAY "++"' TO WK-DISPLAY-SQL
+           DISPLAY WK-DISPLAY-SQL
+           DISPLAY WK-DISPLAY-SQL
+           DISPLAY WK-DISPLAY-SQL
+           INITIALIZE WK-DISPLAY-SQL
+
+           STRING '           DISPLAY "++' DELIMITED BY SIZE
+                  'Reemplazo de las variables sql "' DELIMITED BY SIZE
+                 INTO WK-DISPLAY-SQL
+           END-STRING
+           DISPLAY WK-DISPLAY-SQL
+
+           INITIALIZE WK-DISPLAY-SQL
+           MOVE   '           DISPLAY "++"' TO WK-DISPLAY-SQL
+           DISPLAY WK-DISPLAY-SQL
+           DISPLAY WK-DISPLAY-SQL
+           DISPLAY WK-DISPLAY-SQL.
+
+       MUESTRA-SQL.
+
+           MOVE "N" TO CTRL-SQL-MOSTRADO
+
+           PERFORM VARYING NSQL FROM 1 BY 1
+             UNTIL SQL-MOSTRADO
+
+               INITIALIZE SQL-CONTADOR SQL-CONTADOR-PUNTO
+      *|||||||
+               PERFORM ELIMINA-ESPACIOS-SQL
+      *|||||||
+               IF    VERSION-BETA
+                     PERFORM MUESTRA-CONTEXTO-CURSOR  *>V10
+               END-IF
+
+               INSPECT SENTENCIA-SQL (NSQL) TALLYING SQL-CONTADOR
+                 FOR ALL 'END-EXEC'
+
+               INSPECT SENTENCIA-SQL (NSQL)   *> for closing literals
+                 TALLYING SQL-CONTADOR-PUNTO  *> with a final dot ...
+                   FOR ALL 'END-EXEC.'
+
+               IF    SQL-CONTADOR > ZERO
+                     MOVE "S" TO CTRL-SQL-MOSTRADO
+               END-IF
+
+               INITIALIZE WK-DISPLAY-SQL
+                          SENTENCIA-FINAL
+
+               MOVE 1 TO ISQL3
+
+               PERFORM VARYING ISQL2 FROM 1 BY 1
+                 UNTIL ISQL2 > 72
+
+                 IF    SENTENCIA-SQL (NSQL)(ISQL2:1) NOT = ":"
+                       MOVE SENTENCIA-SQL (NSQL)(ISQL2:1) TO
+                            SENTENCIA-FINAL (ISQL3:1)
+                       ADD  1 TO ISQL3
+                 ELSE
+                       MOVE '" ' TO SENTENCIA-FINAL (ISQL3:2)
+                       ADD  2 TO ISQL3
+                       ADD  1 TO ISQL2
+                       PERFORM VARYING ISQL2 FROM ISQL2 BY 1
+                         UNTIL ISQL2 > 72 OR
+                          SENTENCIA-SQL (NSQL)(ISQL2:1)  = " " OR
+                          SENTENCIA-SQL (NSQL)(ISQL2:1)  = ")"
+                          MOVE SENTENCIA-SQL (NSQL)(ISQL2:1) TO
+                               SENTENCIA-FINAL (ISQL3:1)
+                          ADD 1 TO ISQL3
+                       END-PERFORM
+                       MOVE ' " ' TO SENTENCIA-FINAL (ISQL3:3)
+                       ADD 3 TO ISQL3
+                 END-IF
+               END-PERFORM
+      *Some littel nyapas to avoid
+               IF SENTENCIA-FINAL(72:1) = '"' AND
+                  SENTENCIA-FINAL(71:1) = '"'
+                    MOVE '  ' TO SENTENCIA-FINAL(71:2)
+               END-IF
+      *Some littel nyapas to avoid
+
+               STRING '           DISPLAY "++' DELIMITED BY SIZE
+      ****************SENTENCIA-SQL (NSQL)     DELIMITED BY SIZE
+                      SENTENCIA-FINAL          DELIMITED BY SIZE
+                 INTO WK-DISPLAY-SQL
+               END-STRING
+
+               IF WK-DISPLAY-SQL (72:1) NOT = ' '
+                  MOVE '*' TO WK-DISPLAY-SQL (07:1)
+               END-IF
+      *ñññññññññññññññññññññññññññññññññ
+               INITIALIZE SQL-CONTADOR
+               INSPECT WK-DISPLAY-SQL TALLYING SQL-CONTADOR
+                 FOR ALL '"'
+               DIVIDE SQL-CONTADOR BY 2 GIVING DIV REMAINDER REM
+               IF  REM > ZERO OR
+                   WK-DISPLAY-SQL (12:19) = 'DISPLAY "++END-EXEC' OR
+                   WK-DISPLAY-SQL (12:20) = 'DISPLAY "++ END-EXEC'
+                 MOVE '"'  TO WK-DISPLAY-SQL (72:1) *>una ñapa
+               END-IF
+      *********MOVE '"'  TO WK-DISPLAY-SQL (72:1)
+      *ñññññññññññññññññññññññññññññññññ
+      *Some littel nyapas to avoid
+      ********
+      ******** IF WK-DISPLAY-SQL(72:1) = '"' AND
+      ********    WK-DISPLAY-SQL(71:1) = '"'
+      ********
+      ********    INSPECT WK-DISPLAY-SQL TALLYING SQL-CONTADOR
+      ********      FOR ALL '"'
+      ********    DIVIDE SQL-CONTADOR BY 2 GIVING DIV REMAINDER REM
+      ********
+      ********    IF  REM = ZERO
+      ********      MOVE '  ' TO WK-DISPLAY-SQL(71:2)
+      ********    ELSE
+      ********      MOVE ' "' TO WK-DISPLAY-SQL(71:2)
+      ********    END-IF
+      ******** END-IF
+           *>
+      ******** IF WK-DISPLAY-SQL(72:1) = '"' AND
+      ********    WK-DISPLAY-SQL(71:1) = '"'
+      ********      MOVE '  ' TO WK-DISPLAY-SQL(71:2)
+      ******** END-IF
+           *>
+               INITIALIZE SQL-CONTADOR
+               INSPECT WK-DISPLAY-SQL TALLYING SQL-CONTADOR
+                   FOR ALL '"'
+               DIVIDE SQL-CONTADOR BY 2 GIVING DIV REMAINDER REM
+               IF  REM  NOT = ZERO
+                 PERFORM VARYING LONGITUD-LINEA FROM 72 BY -1
+                   UNTIL LONGITUD-LINEA =  ZERO
+                     IF  WK-DISPLAY-SQL(LONGITUD-LINEA:1) = '"'
+                         MOVE ZERO TO LONGITUD-LINEA
+                         MOVE ' '  TO
+                           WK-DISPLAY-SQL(LONGITUD-LINEA:1)
+                     END-IF
+                 END-PERFORM
+               END-IF
+               IF  WK-DISPLAY-SQL (72:1) = '"' AND
+                   WK-DISPLAY-SQL (71:1) = '"'
+                   MOVE '  ' TO WK-DISPLAY-SQL (71:2)
+               END-IF
+      *END Some littel nyapas to avoid
+      *ññññññññññññññññññññññññññññ PeroQueCÑEstaPasando? VVVVVV
+               INITIALIZE SQL-CONTADOR
+               MOVE SPACES TO WK-DISPLAY-SQL (01:6)
+               MOVE SPACES TO WK-DISPLAY-SQL (73:7)
+               INSPECT WK-DISPLAY-SQL TALLYING SQL-CONTADOR
+                   FOR ALL '"'
+               DIVIDE SQL-CONTADOR BY 2 GIVING DIV REMAINDER REM
+               IF  REM  NOT = ZERO
+                   MOVE SPACE TO WK-DISPLAY-SQL(72:1)
+               END-IF
+               MOVE CONTADOR TO WK-DISPLAY-SQL (1:4)
+      *ññññññññññññññññññññññññññññ PeroQueCÑEstaPasando? AAAAAA
+      ******** DISPLAY WK-DISPLAY-SQL (1:72)
+               DISPLAY WK-DISPLAY-SQL
+
+           END-PERFORM.
+
+           INITIALIZE WK-DISPLAY-SQL
+
+           IF    SQL-CONTADOR-PUNTO > ZERO
+              STRING '           DISPLAY "++SQLCODE --> " SQLCODE.'
+                                    DELIMITED BY SIZE
+                    INTO WK-DISPLAY-SQL
+              END-STRING
+           ELSE
+              STRING '           DISPLAY "++SQLCODE --> " SQLCODE '
+                                    DELIMITED BY SIZE
+                    INTO WK-DISPLAY-SQL
+              END-STRING
+           END-IF
+
+           DISPLAY WK-DISPLAY-SQL.
+
+       MUESTRA-CONTEXTO-CURSOR.
+
+           INITIALIZE CURSOR-TOKENS
+
+           UNSTRING SENTENCIA-SQL (NSQL) DELIMITED BY ALL SPACES
+               INTO TOKEN1 TOKEN2 TOKEN3 TOKEN4 TOKEN5
+                    TOKEN6 TOKEN7 TOKEN8 TOKEN9 TOKEN10
+           END-UNSTRING
+
+           PERFORM VARYING INDX-TOKEN          *> la linea sql
+              FROM 1 BY 1                      *> analizada contiene
+             UNTIL INDX-TOKEN > 10 OR          *> open y por lo tanto
+                   TOKEN0(INDX-TOKEN) = 'OPEN' *> es un cursor?
+           END-PERFORM
+
+           MOVE INDX-TOKEN TO INDX-CURSOR-NAME
+           ADD 1 TO INDX-CURSOR-NAME
+
+           IF INDX-TOKEN < 11 AND
+              TOKEN0(INDX-TOKEN)          = 'OPEN' *>es apertura cursor
+              MOVE TOKEN0(INDX-CURSOR-NAME) TO CURSORNAME
+              PERFORM VARYING INDX-CURSOR-LINES
+                 FROM 1 BY 1                       *>lo buscamos en su
+                UNTIL INDX-CURSOR-LINES > 5000 OR  *> tabla
+                      CURSOR-NAME (INDX-CURSOR-LINES) = CURSORNAME
+              END-PERFORM
+
+              IF INDX-CURSOR-LINES < 5000 AND
+                 CURSOR-NAME (INDX-CURSOR-LINES) = CURSORNAME
+
+                 PERFORM VARYING INDX-CURSOR-LINES      *>Lo mostramos
+                    FROM INDX-CURSOR-LINES BY 1
+                   UNTIL INDX-CURSOR-LINES > 5000 OR
+                         CURSOR-NAME (INDX-CURSOR-LINES)
+                             NOT = CURSORNAME
+                     PERFORM DISPLAYA-LINEA-CURSOR
+                 END-PERFORM
+              END-IF
+           END-IF.
+
+       DISPLAYA-LINEA-CURSOR.
+      *
+           INITIALIZE WK-DISPLAY-INTENTO
+
+           PERFORM VARYING INDX-TNT FROM 1 BY 1  *> in search of
+             UNTIL INDX-TNT > 80 OR              *> non spaces
+                   CURSOR-LINE (INDX-CURSOR-LINES)(INDX-TNT:1)
+                      NOT = SPACES               *> to adjust the line
+           END-PERFORM.
+
+           IF  INDX-TNT > 80
+               MOVE 1 TO INDX-TNT
+           END-IF
+
+           STRING '           DISPLAY "++' DELIMITED BY SIZE
+                  CURSOR-LINE (INDX-CURSOR-LINES)(INDX-TNT:)
+                      DELIMITED BY SIZE
+             INTO WK-DISPLAY-INTENTO
+           END-STRING.
+
+           MOVE '"' TO WK-DISPLAY-INTENTO (72:1)
+
+           DISPLAY WK-DISPLAY-INTENTO.
+
+       ELIMINA-ESPACIOS-SQL.
+
+           MOVE SENTENCIA-SQL (NSQL) TO WK-INICIO
+           INITIALIZE                   WK-FINAL
+           MOVE HIGH-VALUES          TO WK-ULTIMA
+           MOVE 1                    TO ISQL2
+
+           PERFORM VARYING ISQL FROM 1 BY 1 UNTIL ISQL > 72
+             IF    WK-INICIO (ISQL:1) = ' '    *> este bucle
+             THEN                              *> elimina espacios
+                   IF    WK-ULTIMA = SPACES    *> innecesarios
+                         CONTINUE              *> para acortar
+                   ELSE                        *> la linea
+                         MOVE WK-INICIO (ISQL:1) TO WK-FINAL(ISQL2:1)
+                         MOVE WK-INICIO (ISQL:1) TO WK-ULTIMA
+                         ADD  1 TO ISQL2
+                   END-IF
+             ELSE
+                   MOVE WK-INICIO (ISQL:1) TO WK-FINAL(ISQL2:1)
+                   MOVE WK-INICIO (ISQL:1) TO WK-ULTIMA
+                   ADD  1 TO ISQL2
+             END-IF
+           END-PERFORM.
+
+           MOVE WK-FINAL TO SENTENCIA-SQL (NSQL).
+
+       GUARDALO-TABLA-SQLES.
+           ADD 1 TO NSQL
+           MOVE WK-AUXILIAR (12:) TO SENTENCIA-SQL (NSQL).
+
+       INICIALIZA-TABLA-SQL.
+           PERFORM VARYING ISQL FROM 1 BY 1
+             UNTIL ISQL > 2000
+
+               MOVE SPACES TO SENTENCIA-SQL (ISQL)
+
+           END-PERFORM.
+
+       CUENTA-OFFSETS.
+           DISPLAY "§§++CUENTA OFFSETS"
+           OPEN INPUT ESTRUCT
+
+           IF    D2AN-STATUS-ED2 NOT = ZERO
+                 DISPLAY "PROBLEMAS CON EL FICHERO DE LA ESTRUCTURA "
+                   D2AN-STATUS-ED2
+                 STOP RUN
+           END-IF
+
+           PERFORM LEE-COMPILACION THRU
+               FIN-LEE-COMPILACION
+
+           DISPLAY "----+----1----+----2----+----3----+----4"
+                   "----+----5----+----6----+----7--"
+
+           PERFORM LOCALIZA-JERARQUIA
+
+           PERFORM LOCALIZA-ESTRUCTURA
+
+           PERFORM LEE-COMPILACION THRU
+               FIN-LEE-COMPILACION
+
+           PERFORM UNTIL FINAL-ESTRUCT
+                 INITIALIZE CONTADOR
+                 INSPECT ED2-DATEN TALLYING CONTADOR
+                   FOR ALL ' Group '
+
+                 INSPECT ED2-DATEN TALLYING CONTADOR
+                   FOR ALL ' 88 '
+
+                 INSPECT ED2-DATEN TALLYING CONTADOR-FIN
+                   FOR ALL '   1  '
+
+                 IF    CONTADOR-FIN > ZERO
+                       SET FINAL-ESTRUCT TO TRUE
+                 ELSE
+                       IF CONTADOR > ZERO OR
+                          ED2-DATEN (10:1) = 'C' OR 'H' OR 'D'
+                             CONTINUE
+                       ELSE
+                             PERFORM PROCESA-VARIABLE
+                       END-IF
+                 END-IF
+
+                 PERFORM LEE-COMPILACION
+
+           END-PERFORM
+
+           CLOSE ESTRUCT.
+
+       FIN-CUENTA-OFFSETS.
+           EXIT.
+
+       PROCESA-VARIABLE.
+           DISPLAY "§§++PROCESA VARIABLE"
+           MOVE SPACES TO ED2-DATEN (1:9)
+
+           PERFORM VARYING INDX FROM 1 BY 1
+             UNTIL INDX > 150 OR ED2-DATEN (INDX:1) NOT = SPACE
+           END-PERFORM
+
+           MOVE ED2-DATEN(INDX:3) TO WK-NIJER
+           ADD 1 TO INDX
+
+           DISPLAY "++§§WK-NIJER " WK-NIJER
+
+           PERFORM VARYING INDX FROM INDX BY 1
+             UNTIL INDX > 150 OR ED2-DATEN (INDX:1) NOT = SPACE
+           END-PERFORM
+
+           PERFORM VARYING INDX2 FROM INDX BY 1
+             UNTIL INDX2 > 150 OR ED2-DATEN (INDX2:1) = '.'
+           END-PERFORM
+
+           SUBTRACT 1 FROM INDX2
+           COMPUTE INDX3 = INDX2 - INDX
+
+           MOVE ED2-DATEN (INDX:INDX3) TO WK-VARIABLE
+
+           DISPLAY "§§WK-VARIABLE " WK-VARIABLE
+
+           MOVE ALL "Z" TO WK-MATRIZ
+           MOVE 1       TO INDX2
+
+           PERFORM VARYING INDX FROM 86 BY 1
+             UNTIL ED2-DATEN(INDX:1) IS NOT NUMERIC
+
+               MOVE ED2-DATEN(INDX:1) TO WK-MATRIZ(IDX2:1)
+               ADD 1 TO IDX2
+
+           END-PERFORM
+
+           DISPLAY "++§§ WK-MATRIZ " WK-MATRIZ
+
+           MOVE ALL ZEROES TO WK-MATRIZ-NUM
+           MOVE 12      TO INDX2
+
+           PERFORM VARYING INDX FROM 12 BY -1
+             UNTIL INDX < 1 OR WK-MATRIZ(INDX:1) NOT = 'Z'
+           END-PERFORM
+
+           PERFORM VARYING INDX FROM INDX BY -1
+             UNTIL INDX < 1
+
+                 MOVE WK-MATRIZ(INDX:1) TO WK-MATRIZ-NUM(IDX2:1)
+                 SUBTRACT 1 FROM INDX2
+
+           END-PERFORM.
+
+           DISPLAY "++§§WK-MATRIZ-NUM " WK-MATRIZ-NUM
+
+           DISPLAY "++§§ " WK-NIJER " " WK-VARIABLE " "
+               WK-MATRIZ " " WK-MATRIZ-NUM.
+
+       FIN-PROCESA-VARIABLE.
+           EXIT.
+
+       LOCALIZA-ESTRUCTURA.
+           DISPLAY "§§++LOCALIZA ESTRUCTURA"
+           MOVE "N" TO CTRL-ESTRUCTURA
+
+           MOVE 1 TO INDICE
+           PERFORM LEE-PARAMETROS
+
+           PERFORM UNTIL ESTRUCTURA-FOUND OR FINAL-ESTRUCT
+
+             PERFORM LEE-COMPILACION THRU
+                 FIN-LEE-COMPILACION
+
+             INITIALIZE CONTADOR
+
+             INSPECT ED2-DATEN TALLYING CONTADOR
+               FOR ALL NOMVAR(INDICE)
+
+             IF CONTADOR > ZERO
+                MOVE 'S' TO CTRL-ESTRUCTURA
+             END-IF
+
+           END-PERFORM.
+
+           IF    NO-SE-LOCALIZA-ESTRUCTURA
+                 DISPLAY "NO SE LOCALIZA LA ESTRUCTURA " NOMVAR(INDICE)
+                   " EN EL FICHERO "
+                 STOP RUN
+           END-IF.
+
+       FIN-LOCALIZA-ESTRUCTURA.
+           EXIT.
+
+       LOCALIZA-JERARQUIA.
+           DISPLAY "§§++LOCALIZA JEARRQUIA"
+           MOVE "N" TO CTRL-HIERARQY
+
+           PERFORM UNTIL HIERARQY-FOUND OR FINAL-ESTRUCT
+
+             PERFORM LEE-COMPILACION THRU
+                 FIN-LEE-COMPILACION
+
+             INITIALIZE CONTADOR
+
+             INSPECT ED2-DATEN TALLYING CONTADOR
+               FOR ALL 'Source   Hierarchy and'
+
+             IF CONTADOR > ZERO
+                MOVE 'S' TO CTRL-HIERARQY
+             END-IF
+
+           END-PERFORM.
+
+           IF    HIERARQY-NOT-FOUND
+                 DISPLAY "NO SE LOCALIZA JERARQUIA EN COMPILACION"
+                 STOP RUN
+           END-IF.
+
+       FIN-LOCALIZA-JERARQUIA.
+           EXIT.
+
+       LEE-COMPILACION.
+
+           READ ESTRUCT
+             AT END
+                SET FINAL-ESTRUCT TO TRUE
+           END-READ.
+
+       FIN-LEE-COMPILACION.
+           EXIT.
+
+       TEST-IT.
+           DISPLAY "Hex        " HEXNUM.
+           DISPLAY "Dec        " DECNUM.
+           PERFORM CONVERT
+           DISPLAY "Printable  " HEXVAL.
+
+       CONVERT.
+           PERFORM VARYING I FROM 1 BY 1 UNTIL I > LENGTH OF HEXNUM
+                 COMPUTE J = 2 * I - 1
+                 MOVE HEXNUM(I:1) TO DECBYTE
+                 DIVIDE DEC BY 16 GIVING Q REMAINDER R
+                 COMPUTE J1 = J + 1
+                 COMPUTE Q1 = Q + 1
+                 COMPUTE R1 = R + 1
+                 MOVE HEXSTR(Q1:1) TO HEXVAL(J:1)
+                 MOVE HEXSTR(R1:1) TO HEXVAL(J1:1)
+           END-PERFORM.
+
