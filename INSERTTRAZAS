@@ -1,0 +1,116 @@
+/#######Z JOB (3KN0000,000,00,'N T                         NT000BMP'),
+// 'CAPT.JUC.8028',NOTIFY=&SYSUID,
+// CLASS=K,MSGCLASS=R,PRTY=9,MSGLEVEL=1,
+// TIME=(0010),REGION=0K
+//*TYPRUN=SCAN,TIME=(0010),REGION=0K,
+//*
+//* Set the name of the program to be processed here
+//*
+//* in the DEBUGIT step in the SYSIN file under the INS function
+//*
+//* enter the name of the column variables that you want to control
+//*
+//* nothing else needs to be changed
+//*
+// SET FICHENT='GU6KI9F.VX936A39.COBOL'
+//*SET FICHENT=GU6KI9F.VX745A71.COBOL
+//*
+//* fijar aqui el nombre de ficheros temporales de trabajo
+//*
+// SET FICHDU1=GU6KI9F.READ.TMP1
+// SET FICHDU2=GU6KI9F.READ.TMP2
+//*
+//DELDUMY  EXEC PGM=IEFBR14
+//FICHER1  DD DSN=&FICHDU1,
+//            DISP=(MOD,DELETE),UNIT=SYSDA,SPACE=(TRK,0)
+//FICHER2  DD DSN=&FICHDU2,
+//            DISP=(MOD,DELETE),UNIT=SYSDA,SPACE=(TRK,0)
+//*
+//DELETDI  EXEC PGM=YD330B00,
+//             PARM=($T$T,IKJEFT01,'%KN999A00 DB2T'),
+//             REGION=0K,DYNAMNBR=100,DPRTY=(7,12)
+//*la primera linea del SYSIN es obligatoria, es el control
+//*de lo que se quiere hacer con el fuente, su estructura
+//*es posicional con el siguiente formato:
+//*
+//SYSIN    DD *
+DEL
+/*
+//STEPLIB  DD  DSN=DB2T.PGMLIB,DISP=SHR
+//SYSTSPRT  DD SYSOUT=*
+//*YSOUT    DD SYSOUT=*
+//SYSOUT    DD  DSN=&FICHDU1,
+//             DISP=(,CATLG,CATLG),DCB=(RECFM=FB,LRECL=80),
+//             DSORG=PS,UNIT=SYSWOR,SPACE=(TRK,(1000,500),RLSE)
+//PROGRAMA  DD  DSN=&FICHENT,DISP=SHR
+//SYSPRINT  DD SYSOUT=*
+//SYSTSIN   DD *
+  DSN
+      RUN PROGRAM(KN999A00)
+  END
+/*
+//*
+//DEBUGIT  EXEC PGM=YD330B00,
+//             PARM=($T$T,IKJEFT01,'%KN999A00 DB2T'),
+//             REGION=0K,DYNAMNBR=100,DPRTY=(7,12)
+//*la primera linea del SYSIN es obligatoria, es el control
+//*de lo que se quiere hacer con el fuente, su estructura
+//*es posicional con el siguiente formato:
+//*
+//*12345678
+//*DEL             --> Remove displays
+//*INS             --> INSert displays on section,paragraphs & variables
+//*ANA             --> get a insigth in the program structure
+//*   12345        --> literal hook to search throug the system logs
+//*        SQL     --> DB debug, see sql code and content of variables
+//*           LSQL --> see the literal SQL to execute in the trace
+//*                IF> whenever text writted force conditional display
+//* example:
+//*-+----1----+----2----+----3----+----4----+----5----+----6----+----7--
+//*                  col23
+//*                   |                                 COL72(in test) J
+//*                   |                         Need to see content of |
+//*                   |               variables in open of cursor <----|
+//*                col19
+//*            col16| |
+//*       col11 |   | |
+//*    col01    |   | |
+//*    INSJUC01SQLLSQLcondicionar los display a este texto
+//*     |  |    |   | |
+//*     |  |    |   | |
+//*     |  |    |   | |-> IF text writed, displays condicioned
+//*     |  |    |   |        DEFAULT=NO    not condicioned
+//*     |  |    |   |        DEFAULT=YES       condicioned
+//*     |  |    |   |        spaces            condicioned (as DEFAULT)
+//*     |  |    |   |---> I need to see SQL coded as it is (LSQL)
+//*     |  |    |-------> I need to debug SQL access to DB (SQL)
+//*     |  |------------> literal hook to search throug the system logs
+//*     |---------------> Function to execute in the debug module
+//*                                                                     89012345
+//SYSIN    DD *
+INSJUC09SQL           DEFAULT=NO                                               J
+/*
+//STEPLIB  DD  DSN=DB2T.PGMLIB,DISP=SHR
+//SYSTSPRT  DD SYSOUT=*
+//SYSOUT    DD  DSN=&FICHDU2,
+//             DISP=(,CATLG,CATLG),DCB=(RECFM=FB,LRECL=80),
+//             DSORG=PS,UNIT=SYSWOR,SPACE=(TRK,(1000,500),RLSE)
+//PROGRAMA  DD  DSN=&FICHDU1,DISP=SHR
+//SYSPRINT  DD SYSOUT=*
+//SYSTSIN   DD *
+  DSN
+      RUN PROGRAM(KN999A00)
+  END
+/*
+//DELTOLD  EXEC PGM=IEFBR14
+//FICHERO  DD DSN=&FICHENT,
+//            DISP=(MOD,DELETE),UNIT=SYSDA,SPACE=(TRK,0)
+//*
+//COPYNEW  EXEC PGM=IEBGENER
+//SYSPRINT DD SYSOUT=*
+//SYSUT1   DD  DSN=&FICHDU2,DISP=SHR
+//SYSUT2   DD  DSN=&FICHENT,
+//             DISP=(,CATLG,CATLG),DCB=(RECFM=FB,LRECL=80),
+//             DSORG=PS,UNIT=SYSWOR,SPACE=(TRK,(1000,500),RLSE)
+//SYSIN    DD DUMMY   DUMMY--->COPIA SYSUT1 EN SYSUT2
+//
