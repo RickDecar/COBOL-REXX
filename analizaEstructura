@@ -1,0 +1,36 @@
+//#######Z JOB (3KN0000,000,00,'N T                         NT000BMP'),
+// 'Capt.Juc.8028',NOTIFY=&SYSUID,
+// CLASS=K,MSGCLASS=R,PRTY=9,TIME=(0010),MSGLEVEL=1
+//*
+//* fijar aqui el nombre del programa a ser tratado
+//*
+// SET FICHENT=GU6KI9F.KN966A04.COBOL
+//*
+//*
+//DEBUGIT  EXEC PGM=YD330B00,
+//             PARM=($T$T,IKJEFT01,'%KN999A00 DB2T'),
+//             REGION=0K,DYNAMNBR=100,DPRTY=(7,12)
+//*la primera linea del SYSIN es obligatoria, es el control
+//*de lo que se quiere hacer con el fuente, su estructura
+//*es posicional con el siguiente formato:
+//*
+//*12345678
+//*DEL      --> ELIMINA LOS DISPLAYS
+//*INS      --> INSERTA LOS DISPLAY
+//*ANA      --> ANALIZA ESTRUCTURA DEL PROGRAMA
+//*   12345 --> TEXTO A INSERTAR CON LOS DISPLAY O PARA BUSCAR AL
+//*             ELIMINAR
+//SYSIN    DD *
+ANA
+/*
+//STEPLIB  DD  DSN=DB2T.PGMLIB,DISP=SHR
+//SYSTSPRT  DD SYSOUT=*
+//SYSOUT    DD SYSOUT=*
+//PROGRAMA  DD  DSN=&FICHENT,DISP=SHR
+//SYSPRINT  DD SYSOUT=*
+//SYSTSIN   DD *
+  DSN
+      RUN PROGRAM(KN999A00)
+  END
+/*
+//
